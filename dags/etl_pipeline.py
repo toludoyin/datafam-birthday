@@ -9,14 +9,13 @@ import psycopg2
 import json
 import pendulum
 from airflow.decorators import dag, task
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 # environment variables
 load_dotenv()
 service_account = os.environ.get("SERVICE_ACCOUNT_KEY_PATH")
 sheet_url = os.getenv("sheet_link")
-user = os.environ.get("POSTGRES_USER")
-password = os.environ.get("POSTGRES_PASSWORD")
-dbname = os.environ.get("POSTGRES_DB")
+postgres_conn_id='datafam_birthday_conn'
 
 # google sheet credentials
 scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -27,7 +26,7 @@ client = gspread.authorize(credentials)
     schedule="00 01 * * *",
     start_date=pendulum.datetime(2024, 8, 1, tz="UTC"),
     catchup=False,
-    tags=["datafam"],
+    tags=["datafam_dag"],
 )
 
 def datafam_birthday():
@@ -50,37 +49,41 @@ def datafam_birthday():
 
       # remove trailing @symbol
       datafam_df['Twitter Handle'] = datafam_df['Twitter Handle'].str.replace(r'\@', '', regex=True)
+      datafam_df.columns = [col.replace(' ', '_').replace('?', '').lower() for col in datafam_df.columns]
       return datafam_df
 
-   # @task
-   # def load_data_to_db(datafam_df):
-   #    try:
-   #       table_name = 'datafam_birthday'
-   #       connection = psycopg2.connect(dbname=dbname, user=user, password=password, host= 'postgres', port= '5434')
-   #       cursor = connection.cursor()
-
-   #       create_table = f"CREATE TABLE IF NOT EXISTS {table_name} \
-   #                          ({','.join([f'{column_name} VARCHAR' for column_name in datafam_df.columns])});"
-   #       cursor.execute(create_table)
-   #       connection.commit()
+   @task
+   def load_data_to_db(datafam_df):
+      try:
+         table_name = 'datafam_birthday'
+         hook = PostgresHook(postgres_conn_id=postgres_conn_id)
+         connection = hook.get_conn()
+         cursor = connection.cursor()
+      
+         create_table = f"CREATE TABLE IF NOT EXISTS {table_name}({','.join([f'{column_name} VARCHAR' for column_name in datafam_df.columns])});"
+         cursor.execute(create_table)
+         connection.commit()
          
-   #       # insert column and values to db
-   #       column = ', '.join(datafam_df.columns)
-   #       placeholders = ', '.join(['%s'] * len(datafam_df.columns)) # number of columns
-   #       query = f"INSERT INTO {table_name} ({column}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+         # insert column and values to db
+         column = ', '.join(datafam_df.columns)
+         placeholders = ', '.join(['%s'] * len(datafam_df.columns)) # number of columns
+         query = f"INSERT INTO {table_name} ({column}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
 
-   #       for row in datafam_df.values.tolist():
-   #             cursor.execute(query, row)
-   #       connection.commit()
+         for row in datafam_df.values.tolist():
+            cursor.execute(query, row)
+         connection.commit()
 
-   #    except (Exception, psycopg2.Error) as error:
-   #       print('Error while connecting to PostgreSQL', error)
+      except (Exception, psycopg2.Error) as error:
+         print('Error while connecting to PostgreSQL', error)
 
-   #    finally:
-   #       print("Data inserted successfully")
+      finally:
+         if connection:
+            cursor.close()
+            connection.close()
+         print("Data inserted successfully")
 
    get_sheet_data = get_data_from_sheet(sheet_url)
    transform_data = transform_data(get_sheet_data)
-#    # load = load_data_to_db(load)
+   load = load_data_to_db(transform_data)
 
 datafam_birthday()
