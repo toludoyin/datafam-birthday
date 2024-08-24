@@ -11,7 +11,6 @@ RUN  python -m pip install python-dotenv
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-
 WORKDIR $AIRFLOW_HOME
 
 USER $AIRFLOW_UID

@@ -1,14 +1,20 @@
 # datafam_birthday
 
-This project includes:
-* Data pipeline on Apache Airflow on Docker
-* Dashboard on Tableau
+### Objective
+Build an ETL pipeline that process data in batch: periodically(daily)
 
-The collection of the datafam birthday and my interest in calender viz spike this interest. The data is collected via a google form and stored in a sheet. In order to automatically update the calender dashboard as new entries comes in, I decided to adopt the data engineer role to extract the data from its source(google sheet), load into a database(postgreSQL) and final result displayed in Tableau.
+* Using the DataFam birthday data collected from the community.
+* Create a pipeline to put data in a database
+* Transform the data
+* Build a calender dashboard to visualize the data
 
-follow doc to set up docker https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
+### Technologies
+Data Ingestion and Transformation : Python
+Workflow Orchestration : Apache Airflow
+Database : OLTP(PostgreSQL)
+Visualization : Tableau
 
-gspread doc https://docs.gspread.org/en/v6.0.0/user-guide.html
+### Resources
+* Follow doc to set up docker https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
 
-https://docs.gspread.org/en/latest/oauth2.html
-
+* Gspread doc https://docs.gspread.org/en/v6.0.0/user-guide.html, https://docs.gspread.org/en/latest/oauth2.html
