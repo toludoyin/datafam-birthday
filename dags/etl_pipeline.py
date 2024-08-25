@@ -1,6 +1,5 @@
 import os
 import pathlib
-import hashlib
 from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
 import gspread
@@ -33,11 +32,15 @@ class DataTransformer:
       self.df['Month Num'] = pd.to_datetime(self.df['Which month were you born?'], format='%B').dt.month
       self.df['Date of Birth'] = self.df['Which day of the month were you born?'].astype(str) + '-' + self.df['Month Num'].astype(str) + '-' + self.df['Year']
       self.df['Date of Birth'] = pd.to_datetime(self.df['Date of Birth'], format='%d-%m-%Y', errors='coerce')
-      # remove space and @symbol
+
+      # remove space and character
       self.df['Twitter Handle'] = self.df['Twitter Handle'].str.replace(r'\@', '', regex=True)
       self.df.columns = [col.replace(' ', '_').replace('?', '').lower() for col in self.df.columns]
       # drop duplicate
       self.df = self.df.drop_duplicates(subset=['twitter_handle', 'linkedin_profile'], keep='first')
+      # convert datatype
+      self.df = self.df.convert_dtypes()
+
       return self.df
 
 class PostgresLoader:
@@ -45,43 +48,44 @@ class PostgresLoader:
       self.postgres_conn_id=postgres_conn_id
 
    def load_data_to_db(self, data_df):
-      temp_table_name = 'temp_datafam_birthday'
+      stg_table_name = 'stg_datafam_birthday'
       table_name = 'datafam_birthday'
+      dtype_mapping = {
+         'int64' : 'integer',
+         'string' : 'varchar',
+         'float' : 'float',
+         'boolean' : 'boolean',
+         'datetime64[ns]' : 'date'
+      }
+      column_mapping = ','.join([f'{col_name} {dtype_mapping.get(str(dtype), "VARCHAR")}' for col_name, dtype in data_df.dtypes.items()])
+      columns = ', '.join(data_df.columns)
+      placeholders = ', '.join(['%s'] * len(data_df.columns))
+      
       try:
          hook = PostgresHook(postgres_conn_id=self.postgres_conn_id)
          connection = hook.get_conn()
          cursor = connection.cursor()
-      
-         cursor.execute(f"DROP TABLE IF EXISTS {temp_table_name};")
-         create_temp_table = f"""
-         CREATE TEMPORARY TABLE {temp_table_name}( 
-         {','.join([f'{column_name} VARCHAR' for column_name in data_df.columns])});
-         """
-         cursor.execute(create_temp_table)
          
-         columns = ', '.join(data_df.columns)
-         placeholders = ', '.join(['%s'] * len(data_df.columns))
-         insert_query = f"""
-         INSERT INTO {temp_table_name} ({columns}) VALUES ({placeholders})
-         """
+         # create staging table
+         cursor.execute(f"DROP TABLE IF EXISTS {stg_table_name};")
+         create_stg_table = f"""CREATE TEMPORARY TABLE {stg_table_name}({column_mapping});"""
+         cursor.execute(create_stg_table)
+         insert_query = f"""INSERT INTO {stg_table_name} ({columns}) VALUES ({placeholders})"""
          for row in data_df.values.tolist():
             cursor.execute(insert_query, row)
 
-         create_table = f"""
-            CREATE TABLE IF NOT EXISTS {table_name} (
-                {','.join([f'{column_name} VARCHAR' for column_name in data_df.columns])});
-            """
-         cursor.execute(create_table)
-
+         # create main table
+         create_main_table = f"""CREATE TABLE IF NOT EXISTS {table_name} ({column_mapping});"""
+         cursor.execute(create_main_table)
          merge_query = f"""
-         MERGE INTO {table_name} AS target
-         USING {temp_table_name} AS source
-         ON target.twitter_handle = source.twitter_handle
-         AND target.linkedin_profile = source.linkedin_profile
-         WHEN MATCHED THEN
-            UPDATE SET {', '.join([f'{col} = source.{col}' for col in data_df.columns])}
-         WHEN NOT MATCHED THEN
-            INSERT ({columns}) VALUES ({', '.join([f'source.{col}' for col in data_df.columns])});
+            MERGE INTO {table_name} AS main
+            USING {stg_table_name} AS stg
+            ON main.twitter_handle = stg.twitter_handle
+            AND main.linkedin_profile = stg.linkedin_profile
+            WHEN NOT MATCHED THEN
+               INSERT ({columns}) VALUES ({', '.join([f'stg.{col}' for col in data_df.columns])})
+            WHEN MATCHED THEN
+               UPDATE SET {', '.join([f'{col} = stg.{col}' for col in data_df.columns])};
          """
          cursor.execute(merge_query)
          connection.commit()
@@ -100,7 +104,7 @@ class PostgresLoader:
 
 def datafam_birthday():
    @task
-   def etl_process():
+   def etl_flow():
       # initialise classes
       service_account = os.environ.get("SERVICE_ACCOUNT_KEY_PATH")
       sheet_url = os.getenv("sheet_link")
@@ -114,10 +118,10 @@ def datafam_birthday():
       # data transformation
       transformer = DataTransformer(sheet_data)
       transformed_data = transformer.transform_data()
-      
+
       # load data to postgres database
       loader = PostgresLoader(postgres_conn_id)
       loader.load_data_to_db(transformed_data)
-   etl_process()
+   etl_flow()
 
 datafam_birthday()
