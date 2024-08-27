@@ -35,6 +35,7 @@ class DataTransformer:
 
       # remove space and character
       self.df['Twitter Handle'] = self.df['Twitter Handle'].str.replace(r'\@', '', regex=True)
+      self.df['Twitter Handle'] = self.df['Twitter Handle'].str.lower()
       self.df.columns = [col.replace(' ', '_').replace('?', '').lower() for col in self.df.columns]
       # drop duplicate
       self.df = self.df.drop_duplicates(subset=['twitter_handle', 'linkedin_profile'], keep='first')
