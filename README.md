@@ -1,4 +1,4 @@
-## datafam Birthday Tracker
+## Datafam Birthday Tracker
 
 ### Objective
 Build an ETL pipeline that process data in batch: periodically(daily)
