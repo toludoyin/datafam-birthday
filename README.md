@@ -1,4 +1,4 @@
-# datafam_birthday
+## Datafam Birthday
 
 ### Objective
 Build an ETL pipeline that process data in batch: periodically(daily)
@@ -9,10 +9,10 @@ Build an ETL pipeline that process data in batch: periodically(daily)
 * Build a calender dashboard to visualize the data
 
 ### Technologies
-Data Ingestion and Transformation : Python
-Workflow Orchestration : Apache Airflow
-Database : OLTP(PostgreSQL)
-Visualization : Tableau
+* Data Ingestion and Transformation : Python
+* Workflow Orchestration : Apache Airflow
+* Database : OLTP(PostgreSQL)
+* Visualization : Tableau
 
 ### Resources
 * Follow doc to set up docker https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
