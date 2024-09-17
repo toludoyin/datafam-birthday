@@ -1,4 +1,4 @@
-## Datafam Birthday Tracker
+## Datafam Birthday
 
 ### Objective
 Build an ETL pipeline that process data in batch: periodically(daily)
@@ -14,7 +14,11 @@ Build an ETL pipeline that process data in batch: periodically(daily)
 * Database : OLTP(PostgreSQL)
 * Visualization : Tableau
 
-### Resources
+### Reference
 * Follow doc to set up docker https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
 
 * Gspread doc https://docs.gspread.org/en/v6.0.0/user-guide.html, https://docs.gspread.org/en/latest/oauth2.html
+
+Airflow: port 8282
+
+Pgadmin: port 8001
