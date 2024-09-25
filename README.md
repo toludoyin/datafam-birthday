@@ -5,7 +5,7 @@ Build an ETL pipeline that process data in batch: periodically(daily)
 
 * Using the DataFam birthday data collected from the community.
 * Create a pipeline to put data in a database
-* Transform the data
+* Transform the data 
 * Build a calender dashboard to visualize the data
 
 ### Technologies
@@ -22,3 +22,5 @@ Build an ETL pipeline that process data in batch: periodically(daily)
 Airflow: port 8282
 
 Pgadmin: port 8001
+
+Postgres db host on Airflow: host.docker.internal
