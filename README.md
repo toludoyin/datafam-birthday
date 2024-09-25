@@ -1,11 +1,15 @@
+<<<<<<< HEAD
 ## Datafam Birthday
+=======
+# Datafam Birthday Tracker
+>>>>>>> fcab8a9 (modify readme)
 
 ### Objective
 Build an ETL pipeline that process data in batch: periodically(daily)
 
 * Using the DataFam birthday data collected from the community.
 * Create a pipeline to put data in a database
-* Transform the data
+* Transform the data 
 * Build a calender dashboard to visualize the data
 
 ### Technologies
@@ -20,5 +24,10 @@ Build an ETL pipeline that process data in batch: periodically(daily)
 * Gspread doc https://docs.gspread.org/en/v6.0.0/user-guide.html, https://docs.gspread.org/en/latest/oauth2.html
 
 Airflow: port 8282
+<<<<<<< HEAD
 
 Pgadmin: port 8001
+=======
+Pgadmin: port 8001
+Postgres db host on Airflow: host.docker.internal
+>>>>>>> fcab8a9 (modify readme)
