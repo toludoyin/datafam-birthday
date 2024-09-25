@@ -10,6 +10,8 @@ import pendulum
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
 load_dotenv()
 
 class GoogleSheetClient:
@@ -32,16 +34,24 @@ class DataTransformer:
       self.df['Month Num'] = pd.to_datetime(self.df['Which month were you born?'], format='%B').dt.month
       self.df['Date of Birth'] = self.df['Which day of the month were you born?'].astype(str) + '-' + self.df['Month Num'].astype(str) + '-' + self.df['Year']
       self.df['Date of Birth'] = pd.to_datetime(self.df['Date of Birth'], format='%d-%m-%Y', errors='coerce')
+      # self.df['Timestamp'] = pd.to_datetime(self.df['Timestamp'])
 
-      # remove space and character
-      self.df['Twitter Handle'] = self.df['Twitter Handle'].str.replace(r'\@', '', regex=True)
-      self.df['Twitter Handle'] = self.df['Twitter Handle'].str.lower()
+      # drop duplicate and null rows
+      self.df = self.df[~((self.df['Twitter Handle'] == '') & (self.df['LinkedIn Profile'] == ''))]
+      self.df['Twitter Handle'] = self.df['Twitter Handle'].str.lower().str.strip()
+      
+      # modify twitter handle and replace links with username
+      self.df['Twitter Handle'] = self.df['Twitter Handle'].str.replace('＠', '@', regex=False)
+      self.df['Twitter Handle'] = self.df['Twitter Handle'].str.extract(r'(?:https?://(?:x\.com|twitter\.com)/)?@?([^/]+)')
+      self.df['Twitter Handle'] = self.df['Twitter Handle'].fillna('')
+      self.df = self.df.drop_duplicates(subset=['Twitter Handle', 'LinkedIn Profile'], keep='last')
+      empty_handles = self.df[self.df['Twitter Handle'] == '']
+      non_empty_handles = self.df[self.df['Twitter Handle'] != '']
+      non_empty_handles = non_empty_handles.drop_duplicates(subset='Twitter Handle', keep='last')
+      self.df = pd.concat([non_empty_handles, empty_handles]).reset_index(drop=True)
+      # redefine column name
       self.df.columns = [col.replace(' ', '_').replace('?', '').lower() for col in self.df.columns]
-      # drop duplicate
-      self.df = self.df.drop_duplicates(subset=['twitter_handle', 'linkedin_profile'], keep='first')
-      # convert datatype
-      self.df = self.df.convert_dtypes()
-
+   
       return self.df
 
 class PostgresLoader:
@@ -52,7 +62,7 @@ class PostgresLoader:
       stg_table_name = 'stg_datafam_birthday'
       table_name = 'datafam_birthday'
       dtype_mapping = {
-         'int64' : 'integer',
+         'int32' : 'integer',
          'string' : 'varchar',
          'float' : 'float',
          'boolean' : 'boolean',
@@ -67,7 +77,7 @@ class PostgresLoader:
          connection = hook.get_conn()
          cursor = connection.cursor()
          
-         # create staging table
+         # staging table
          cursor.execute(f"DROP TABLE IF EXISTS {stg_table_name};")
          create_stg_table = f"""CREATE TEMPORARY TABLE {stg_table_name}({column_mapping});"""
          cursor.execute(create_stg_table)
@@ -75,7 +85,7 @@ class PostgresLoader:
          for row in data_df.values.tolist():
             cursor.execute(insert_query, row)
 
-         # create main table
+         # main table
          create_main_table = f"""CREATE TABLE IF NOT EXISTS {table_name} ({column_mapping});"""
          cursor.execute(create_main_table)
          merge_query = f"""
@@ -120,7 +130,7 @@ def datafam_birthday():
       transformer = DataTransformer(sheet_data)
       transformed_data = transformer.transform_data()
 
-      # load data to postgres database
+      # load data to postgres db
       loader = PostgresLoader(postgres_conn_id)
       loader.load_data_to_db(transformed_data)
    etl_flow()
